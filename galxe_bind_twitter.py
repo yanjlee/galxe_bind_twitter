@@ -1,3 +1,4 @@
+import sys
 import httpx
 import random
 import string
@@ -7,13 +8,16 @@ from web3 import AsyncWeb3
 from datetime import datetime, timedelta
 from eth_account.messages import encode_defunct
 
+logger.remove()
+logger.add(sys.stdout, colorize=True, format="<g>{time:HH:mm:ss:SSS}</g> | <c>{level}</c> | <level>{message}</level>")
+
 
 class galxe:
     def __init__(self, privateKey, _auth_token):
         try:
             self.w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider('https://cloudflare-eth.com'))
             self.account = self.w3.eth.account.from_key(privateKey)
-            self.http = httpx.AsyncClient(http2=True, verify=False, timeout=50)
+            self.http = httpx.AsyncClient(verify=False, timeout=50)
             self.http.cookies.update({'auth_token': _auth_token})
             self.state = True
         except Exception as e:
@@ -24,7 +28,6 @@ class galxe:
         try:
             characters = string.ascii_letters + string.digits
             nonce = ''.join(random.choice(characters) for i in range(17))
-
             current_time = datetime.utcnow()
             seven_days_later = current_time + timedelta(days=7)
             issued_time = current_time.strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z'
@@ -44,15 +47,15 @@ class galxe:
             }
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=data)
             if res.status_code == 200 and 'signin' in res.text:
-                logger.info(f"{self.account.address} 登录成功")
+                logger.success(f"{self.account.address} 登录成功")
                 signin = res.json()['data']['signin']
                 self.http.headers.update({'Authorization': signin})
                 return True
             else:
-                logger.error(f"{self.account.address} 登录失败")
+                logger.error(f"[{self.account.address[:10]}*******]  登录失败")
                 return False
         except Exception as e:
-            logger.error(f"{self.account.address} 登录失败，{e}")
+            logger.error(f"[{self.account.address[:10]}*******] 登录失败，{e}")
             return False
 
     async def BasicUserInfo(self):
@@ -70,20 +73,20 @@ class galxe:
                 passport_status = res.json()['data']['addressInfo']['passport']['status']
                 hasTwitter = res.json()['data']['addressInfo']['hasTwitter']
                 if hasTwitter:
-                    logger.info(f"{self.account.address} 已绑定Twitter")
+                    logger.info(f"[{self.account.address[:10]}*******] 已绑定Twitter")
                     return True
                 # elif passport_status == 'MINTED':
                 else:
-                    logger.info(f"{self.account.address} 未绑定Twitter，开始绑定")
+                    logger.info(f"[{self.account.address[:10]}*******] 未绑定Twitter，开始绑定")
                     if await self.SignIn() and await self.CreateTweet(galxe_id):
                         return True
                     else:
                         return False
             else:
-                logger.error(f"{self.account.address} 获取用户信息失败")
+                logger.error(f"[{self.account.address[:10]}*******] 获取用户信息失败")
                 return False
         except Exception as e:
-            logger.error(f"{self.account.address} 获取用户信息失败，{e}")
+            logger.error(f"[{self.account.address[:10]}*******] 获取用户信息失败，{e}")
             return False
 
     async def CreateTweet(self, _gid):
@@ -131,16 +134,16 @@ class galxe:
                 rest_id = res.json()['data']['create_tweet']['tweet_results']['result']['rest_id']
                 screen_name = res.json()['data']['create_tweet']['tweet_results']['result']['core']['user_results']['result']['legacy']['screen_name']
                 twitter_url = f"https://twitter.com/{screen_name}/status/{rest_id}"
-                logger.info(f"{self.account.address} 发推成功")
+                logger.success(f"[{self.account.address[:10]}*******] 发推成功")
                 if await self.VerifyTwitterAccount(twitter_url):
                     return True
                 else:
                     return False
             else:
-                logger.error(f"{self.account.address} 发推失败{res.json()['errors'][0]['message']}")
+                logger.error(f"[{self.account.address[:10]}*******] 发推失败{res.json()['errors'][0]['message']}")
                 return False
         except Exception as e:
-            logger.error(f"{self.account.address} 发推失败，{e}")
+            logger.error(f"[{self.account.address[:10]}*******] 发推失败，{e}")
             return False
 
     async def VerifyTwitterAccount(self, _twitter_url):
@@ -156,15 +159,14 @@ class galxe:
                 "query": "mutation VerifyTwitterAccount($input: VerifyTwitterAccountInput!) {\n  verifyTwitterAccount(input: $input) {\n    address\n    twitterUserID\n    twitterUserName\n    __typename\n  }\n}\n"
             }
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
-            logger.debug(res.text)
             if res.status_code == 200 and 'twitterUserName' in res.text:
-                logger.info(f"{self.account.address} 绑定成功")
+                logger.success(f"[{self.account.address[:10]}*******] 绑定成功")
                 return True
             else:
-                logger.error(f"{self.account.address} 绑定失败{res.json()['errors'][0]['message']}")
+                logger.error(f"[{self.account.address[:10]}*******] 绑定失败{res.json()['errors'][0]['message']}")
                 return False
         except Exception as e:
-            logger.error(f"{self.account.address} 绑定失败，{e}")
+            logger.error(f"[{self.account.address[:10]}*******] 绑定失败，{e}")
             return False
 
 
