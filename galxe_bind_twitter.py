@@ -59,6 +59,36 @@ class galxe:
             logger.error(f"[{self.account.address[:10]}*******] 登录失败，{e}")
             return False
 
+    async def CreateNewAccount(self):
+        try:
+            username = ''.join(random.sample(string.ascii_letters + string.digits, 10))
+            json_data = {
+                "operationName": "CreateNewAccount",
+                "variables": {
+                    "input": {
+                        "schema": f"EVM:{self.account.address.lower()}",
+                        "socialUsername": "",
+                        "username": username
+                    }
+                },
+                "query": "mutation CreateNewAccount($input: CreateNewAccount!) {\n  createNewAccount(input: $input)\n}\n"
+            }
+
+            res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
+            if res.status_code == 200 and 'createNewAccount' in res.text:
+                galxe_id = res.json()['data']['createNewAccount']
+                if await self.CreateTweet(galxe_id):
+                    return True
+                else:
+                    logger.error(f"[{self.account.address[:10]}*******] 创建账户失败")
+                    return False
+            else:
+                logger.error(f"[{self.account.address[:10]}*******] 获取用户信息失败")
+                return False
+        except Exception as e:
+            logger.error(f"[{self.account.address[:10]}*******] 获取用户信息失败，{e}")
+            return False
+
     async def BasicUserInfo(self):
         try:
             json_data = {
@@ -74,6 +104,12 @@ class galxe:
                 if hasTwitter:
                     logger.info(f"[{self.account.address[:10]}*******] 已绑定Twitter")
                     return True
+                elif galxe_id == "":
+                    logger.info(f"[{self.account.address[:10]}*******] 未创建账户，开始创建")
+                    if await self.SignIn() and await self.CreateNewAccount():
+                        return True
+                    else:
+                        return False
                 else:
                     logger.info(f"[{self.account.address[:10]}*******] 未绑定Twitter，开始绑定")
                     if await self.SignIn() and await self.CreateTweet(galxe_id):
@@ -136,6 +172,7 @@ class galxe:
                 if await self.VerifyTwitterAccount(twitter_url):
                     return True
                 else:
+                    logger.error(f"[{self.account.address[:10]}*******] 发推失败")
                     return False
             else:
                 logger.error(f"[{self.account.address[:10]}*******] 发推失败{res.json()['errors'][0]['message']}")
@@ -171,7 +208,11 @@ class galxe:
 async def bind_twitter(semaphore, account, twitter, success_file, fail_file):
     async with semaphore:
         _private_key = account.split('----')[1]
-        _auth_tokn = twitter.split('----')[-1]
+        for tw in twitter.split('----'):
+            if len(tw) == 40 and all(c in '0123456789abcdef' for c in tw):
+                _auth_tokn = tw
+                break
+
         Galxe = galxe(_private_key, _auth_tokn)
         if await Galxe.BasicUserInfo():
             success_file.write(f"{Galxe.account.address}----{_private_key}----{_auth_tokn}\r\n")
@@ -185,7 +226,7 @@ async def main():
     # eth-sy.txt 地址文件 地址----私钥一行一个
     # twitter.txt推特文件 最后一列为auth_token
     semaphore = asyncio.Semaphore(int(10))  # 限制并发量
-    with open('eth-sy.txt', 'r')as account_file, open('twitter.txt', 'r') as twitter_file:
+    with open('eth-sy.txt', 'r') as account_file, open('twitter.txt', 'r') as twitter_file:
         with open('bind_success.txt', 'a+') as success_file, open('bind_fail.txt', 'a+') as fail_file:
             task = [bind_twitter(semaphore, account.strip(), twitter.strip(), success_file, fail_file) for account, twitter in zip(account_file.readlines(), twitter_file.readlines())]
             await asyncio.gather(*task)
