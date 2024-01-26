@@ -74,7 +74,6 @@ class galxe:
                 if hasTwitter:
                     logger.info(f"[{self.account.address[:10]}*******] 已绑定Twitter")
                     return True
-                # elif passport_status == 'MINTED':
                 else:
                     logger.info(f"[{self.account.address[:10]}*******] 未绑定Twitter，开始绑定")
                     if await self.SignIn() and await self.CreateTweet(galxe_id):
@@ -183,17 +182,13 @@ async def bind_twitter(semaphore, account, twitter, success_file, fail_file):
 
 
 async def main():
-    account_file = open('eth-sy.txt', 'r')  # 地址文件 地址----私钥一行一个
-    twitter_file = open('twitter.txt', 'r')  # 推特文件 网站买的推特账号文件
-    success_file = open('bind_success.txt', 'a+')  # 绑定成功的账号文本
-    fail_file = open('bind_fail.txt', 'a+')  # 绑定失败的账号文本
+    # eth-sy.txt 地址文件 地址----私钥一行一个
+    # twitter.txt推特文件 最后一列为auth_token
     semaphore = asyncio.Semaphore(int(10))  # 限制并发量
-    task = [bind_twitter(semaphore, account.strip(), twitter.strip(), success_file, fail_file) for account, twitter in zip(account_file.readlines(), twitter_file.readlines())]
-    account_file.close()
-    twitter_file.close()
-    await asyncio.gather(*task)
-    success_file.close()
-    fail_file.close()
+    with open('eth-sy.txt', 'r')as account_file, open('twitter.txt', 'r') as twitter_file:
+        with open('bind_success.txt', 'a+') as success_file, open('bind_fail.txt', 'a+') as fail_file:
+            task = [bind_twitter(semaphore, account.strip(), twitter.strip(), success_file, fail_file) for account, twitter in zip(account_file.readlines(), twitter_file.readlines())]
+            await asyncio.gather(*task)
 
 
 if __name__ == '__main__':
