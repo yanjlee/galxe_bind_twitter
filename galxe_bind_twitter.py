@@ -40,7 +40,8 @@ class galxe:
                     "input": {
                         "address": self.account.address,
                         "message": message,
-                        "signature": signature.signature.hex()
+                        "signature": signature.signature.hex(),
+                        "addressType": "EVM"
                     }
                 },
                 "query": "mutation SignIn($input: Auth) {\n  signin(input: $input)\n}\n"
@@ -62,15 +63,13 @@ class galxe:
         try:
             json_data = {
                 "operationName": "BasicUserInfo",
-                "variables": {
-                    "address": self.account.address,
-                    "listSpaceInput": {"first": 30}},
-                "query": "query BasicUserInfo($address: String!, $listSpaceInput: ListSpaceInput!) {\n  addressInfo(address: $address) {\n    id\n    username\n    address\n    hasEmail\n    avatar\n    solanaAddress\n    aptosAddress\n    seiAddress\n    injectiveAddress\n    flowAddress\n    hasEvmAddress\n    hasSolanaAddress\n    hasAptosAddress\n    hasInjectiveAddress\n    hasFlowAddress\n    hasTwitter\n    hasGithub\n    hasDiscord\n    hasTelegram\n    displayEmail\n    displayTwitter\n    displayGithub\n    displayDiscord\n    displayTelegram\n    email\n    twitterUserID\n    twitterUserName\n    githubUserID\n    githubUserName\n    passport {\n      status\n      pendingRedactAt\n      id\n      __typename\n    }\n    isVerifiedTwitterOauth2\n    isVerifiedDiscordOauth2\n    displayNamePref\n    discordUserID\n    discordUserName\n    telegramUserID\n    telegramUserName\n    subscriptions\n    isWhitelisted\n    isInvited\n    isAdmin\n    passportPendingRedactAt\n    spaces(input: $listSpaceInput) {\n      list {\n        ...SpaceBasicFrag\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n\nfragment SpaceBasicFrag on Space {\n  id\n  name\n  info\n  thumbnail\n  alias\n  links\n  isVerified\n  status\n  followersCount\n  __typename\n}\n"
+                "variables": {"address": self.account.address},
+                "query": "query BasicUserInfo($address: String!) {\n  addressInfo(address: $address) {\n    id\n    username\n    avatar\n    address\n    evmAddressSecondary {\n      address\n      __typename\n    }\n    hasEmail\n    solanaAddress\n    aptosAddress\n    seiAddress\n    injectiveAddress\n    flowAddress\n    starknetAddress\n    bitcoinAddress\n    hasEvmAddress\n    hasSolanaAddress\n    hasAptosAddress\n    hasInjectiveAddress\n    hasFlowAddress\n    hasStarknetAddress\n    hasBitcoinAddress\n    hasTwitter\n    hasGithub\n    hasDiscord\n    hasTelegram\n    displayEmail\n    displayTwitter\n    displayGithub\n    displayDiscord\n    displayTelegram\n    displayNamePref\n    email\n    twitterUserID\n    twitterUserName\n    githubUserID\n    githubUserName\n    discordUserID\n    discordUserName\n    telegramUserID\n    telegramUserName\n    enableEmailSubs\n    subscriptions\n    isWhitelisted\n    isInvited\n    isAdmin\n    accessToken\n    __typename\n  }\n}\n"
             }
+
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
             if res.status_code == 200 and 'addressInfo' in res.text:
                 galxe_id = res.json()['data']['addressInfo']['id']
-                passport_status = res.json()['data']['addressInfo']['passport']['status']
                 hasTwitter = res.json()['data']['addressInfo']['hasTwitter']
                 if hasTwitter:
                     logger.info(f"[{self.account.address[:10]}*******] 已绑定Twitter")
