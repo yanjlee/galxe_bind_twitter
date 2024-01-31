@@ -41,11 +41,64 @@ class tempmail:
                 if 'galxe.com' in res.text:
                     mailid = res.json()[0]['id']
                     res = await self.http.get(f'{self.url}?action=readMessage&id={mailid}&login={self.login}&domain={self.domain}')
-                    allcode = re.findall(r'<h1>(\d{6})<\\/h1>', res.text)
+                    print(res.text)
+                    allcode = re.findall(r'<h1>(\d{6})<', res.text)
                     if len(allcode) > 0:
                         return allcode[0]
             except:
                 pass
+            await asyncio.sleep(3)
+        return None
+
+
+class kopeechka:
+    def __init__(self, token):
+        self.token = token
+        self.mailId = None
+        self.http = httpx.AsyncClient(verify=False, timeout=120)
+
+    async def get_mail(self):
+        params = {
+            'api': '2.0',
+            'site': 'galxe.com',
+            'mail_type': 'rambler.ru',
+            'token': self.token,
+            'soft': '99'
+        }
+        resp = await self.http.get('https://api.kopeechka.store/mailbox-get-email', params=params)
+        if resp.status_code == 200 and resp.json()['status'] == 'OK':
+            self.mailId = resp.json()['id']
+            return resp.json()['mail']
+        elif 'ERROR' in resp.text:
+            if resp.json()['value'] == 'BAD_BALANCE':
+                logger.error('kopeechka余额不足')
+        return None
+
+    async def cancel_mail(self):
+        params = {
+            'id': self.mailId,
+            'token': self.token,
+            'api': '2.0'
+        }
+        resp = await self.http.get('https://api.kopeechka.store/mailbox-cancel', params=params)
+        if resp.status_code == 200 and resp.json()['status'] == 'OK':
+            return True
+
+    async def get_code(self):
+        params = {
+            'full': '$FULL',
+            'id': self.mailId,
+            'token': self.token,
+            'api': '2.0'
+        }
+        for _ in range(20):
+            resp = await self.http.get(f"https://api.kopeechka.store/mailbox-get-message", params=params)
+            if resp.status_code == 200 and resp.json()['status'] == 'OK':
+                value = resp.json()['value']
+                if value != 'WAIT_LINK':
+                    allcode = re.findall(r'<h1>(\d{6})<', resp.json()['fullmessage'])
+                    await self.cancel_mail()
+                    return allcode[0]
             await asyncio.sleep(3)
         return None
 
@@ -225,13 +278,13 @@ class Twitter:
 
 
 class galxe:
-    def __init__(self, privateKey, _auth_token=None, W=None, nstproxy_Channel=None, nstproxy_Password=None):
+    def __init__(self, privateKey, _auth_token=None, W=None, nstproxy_Channel=None, nstproxy_Password=None, kopeechka_token=None):
         try:
             self.w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider('https://cloudflare-eth.com'))
             self.account = self.w3.eth.account.from_key(privateKey)
             self.http = httpx.AsyncClient(verify=False, timeout=50)
             self.http.cookies.update({'auth_token': _auth_token})
-            self.mail = tempmail()
+            self.mail = kopeechka(kopeechka_token)
             session = ''.join(random.choice(string.digits + string.ascii_letters) for _ in range(10))
             nstproxy = f"http://{nstproxy_Channel}-residential-country_ANY-r_5m-s_{session}:{nstproxy_Password}@gw-us.nstproxy.com:24125"
             self.gcaptcha = gcaptcha(nstproxy)
@@ -402,7 +455,7 @@ class galxe:
                 "query": "mutation SendVerifyCode($input: SendVerificationEmailInput!) {\n  sendVerificationCode(input: $input) {\n    code\n    message\n    __typename\n  }\n}\n"
             }
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
-            if res.status_code == 200 and 'sendVerificationCode' in res.text:
+            if res.status_code == 200 and 'errors' not in res.text:
                 logger.success(f"[{self.account.address[:10]}*******] 发送验证码成功")
                 return True
             else:
@@ -596,7 +649,7 @@ class galxe:
             return False
 
 
-async def bind_tread(semaphore, account, twitter, W, nstproxy_Channel, nstproxy_Password, success_file, fail_file):
+async def bind_tread(semaphore, account, twitter, W, nstproxy_Channel, nstproxy_Password, kopeechka_token, success_file, fail_file):
     async with semaphore:
         _private_key = account.split('----')[1]
         for tw in twitter.split('----'):
@@ -604,7 +657,7 @@ async def bind_tread(semaphore, account, twitter, W, nstproxy_Channel, nstproxy_
                 _auth_tokn = tw
                 break
 
-        Galxe = galxe(_private_key, _auth_tokn, W, nstproxy_Channel, nstproxy_Password)
+        Galxe = galxe(_private_key, _auth_tokn, W, nstproxy_Channel, nstproxy_Password, kopeechka_token)
         if await Galxe.BasicUserInfo():
             success_file.write(f"{Galxe.account.address}----{_private_key}----{_auth_tokn}\r\n")
             success_file.flush()
@@ -640,12 +693,12 @@ async def task(W, nstproxy_Channel, nstproxy_Password):
         await asyncio.gather(*tasks)
 
 
-async def bind(W, nstproxy_Channel, nstproxy_Password):
+async def bind(W, nstproxy_Channel, nstproxy_Password, kopeechka_token):
     await asyncio.sleep(5)
     semaphore = asyncio.Semaphore(int(10))  # 限制并发量
     with open('eth-sy.txt', 'r') as account_file, open('twitter.txt', 'r') as twitter_file:
         with open('bind_success.txt', 'a+') as success_file, open('bind_fail.txt', 'a+') as fail_file:
-            tasks = [bind_tread(semaphore, account.strip(), twitter.strip(), W, nstproxy_Channel, nstproxy_Password, success_file, fail_file) for account, twitter in zip(account_file.readlines(), twitter_file.readlines())]
+            tasks = [bind_tread(semaphore, account.strip(), twitter.strip(), W, nstproxy_Channel, nstproxy_Password, kopeechka_token, success_file, fail_file) for account, twitter in zip(account_file.readlines(), twitter_file.readlines())]
             await asyncio.gather(*tasks)
 
 
@@ -666,7 +719,9 @@ if __name__ == '__main__':
         print("eth-sy.txt 地址文件 地址----私钥一行一个")
         print("twitter.txt推特文件 任意带auth_token格式，----分割，hdd买的直接复制进去")
         print("绑定好的在bind_success.txt，失败的在bind_fail.txt")
-        asyncio.run(bind(_W, _nstproxy_Channel, _nstproxy_Password))
+        print("kopeechka_token在https://kopeechka.store/ 充值，一条邮件0.05卢布")
+        _kopeechka_token = input('请输入kopeechka_token:').strip()
+        asyncio.run(bind(_W, _nstproxy_Channel, _nstproxy_Password, _kopeechka_token))
     elif _task == '1':
         print("任务自动从bind_success.txt读取")
         asyncio.run(task(_W, _nstproxy_Channel, _nstproxy_Password))
