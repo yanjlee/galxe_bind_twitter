@@ -319,13 +319,13 @@ class galxe:
                 "query": "mutation SignIn($input: Auth) {\n  signin(input: $input)\n}\n"
             }
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=data)
-            if res.status_code == 200 and 'signin' in res.text:
+            if res.status_code == 200 and 'errors' not in res.text:
                 logger.success(f"{self.account.address} 登录成功")
                 signin = res.json()['data']['signin']
                 self.http.headers.update({'Authorization': signin})
                 return True
             else:
-                logger.error(f"[{self.account.address[:10]}*******]  登录失败")
+                logger.error(f"[{self.account.address[:10]}*******]  登录失败 {res.json()['errors'][0]['message']}")
                 return False
         except Exception as e:
             logger.error(f"[{self.account.address[:10]}*******] 登录失败，{e}")
@@ -347,11 +347,11 @@ class galxe:
             }
 
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
-            if res.status_code == 200 and 'createNewAccount' in res.text:
+            if res.status_code == 200 and 'errors' not in res.text:
                 galxe_id = res.json()['data']['createNewAccount']
                 return galxe_id
             else:
-                logger.error(f"[{self.account.address[:10]}*******] 获取用户信息失败")
+                logger.error(f"[{self.account.address[:10]}*******] 获取用户信息失败 {res.json()['errors'][0]['message']}")
                 return None
         except Exception as e:
             logger.error(f"[{self.account.address[:10]}*******] 获取用户信息失败，{e}")
@@ -368,7 +368,7 @@ class galxe:
             }
 
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
-            if res.status_code == 200 and 'addressInfo' in res.text:
+            if res.status_code == 200 and 'errors' not in res.text:
                 galxe_id = res.json()['data']['addressInfo']['id']
                 hasTwitter = res.json()['data']['addressInfo']['hasTwitter']
                 hasEmail = res.json()['data']['addressInfo']['hasEmail']
@@ -394,7 +394,7 @@ class galxe:
 
                 return False
             else:
-                logger.error(f"[{self.account.address[:10]}*******] 获取用户信息失败")
+                logger.error(f"[{self.account.address[:10]}*******] 获取用户信息失败 {res.json()['errors'][0]['message']}")
                 return False
         except Exception as e:
             logger.error(f"[{self.account.address[:10]}*******] 获取用户信息失败，{e}")
@@ -418,7 +418,7 @@ class galxe:
                 "query": "mutation VerifyTwitterAccount($input: VerifyTwitterAccountInput!) {\n  verifyTwitterAccount(input: $input) {\n    address\n    twitterUserID\n    twitterUserName\n    __typename\n  }\n}\n"
             }
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
-            if res.status_code == 200 and 'twitterUserName' in res.text:
+            if res.status_code == 200 and 'errors' not in res.text:
                 logger.success(f"[{self.account.address[:10]}*******] 绑定成功")
                 return True
             else:
@@ -485,7 +485,7 @@ class galxe:
                 "query": "mutation UpdateEmail($input: UpdateEmailInput!) {\n  updateEmail(input: $input) {\n    code\n    message\n    __typename\n  }\n}\n"
             }
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
-            if res.status_code == 200 and 'updateEmail' in res.text:
+            if res.status_code == 200 and 'errors' not in res.text:
                 logger.success(f"[{self.account.address[:10]}*******] 绑定邮箱成功")
                 return True
             else:
@@ -541,7 +541,7 @@ class galxe:
                     }
                 }
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
-            if res.status_code == 200 and 'syncCredentialValue' in res.text:
+            if res.status_code == 200 and 'errors' not in res.text:
                 if res.json()['data']['syncCredentialValue']['value']['allow']:
                     logger.success(f"[{self.account.address[:10]}*******] 任务【{task_name[credId]}】已完成")
                     return True
@@ -599,7 +599,7 @@ class galxe:
             if credId == "367886459336302592":
                 json_data['variables']['input']['campaignId'] = "GCTN3ttM4T"
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
-            if res.status_code == 200 and 'typedCredentialItems' in res.text:
+            if res.status_code == 200 and 'errors' not in res.text:
                 logger.success(f"[{self.account.address[:10]}*******] 任务【{task_name[credId]}】提交成功")
                 return True
             logger.error(f"[{self.account.address[:10]}*******] 【{task_name[credId]}】提交失败{res.json()['errors'][0]['message']}")
@@ -638,7 +638,7 @@ class galxe:
                 "query": "mutation PrepareParticipate($input: PrepareParticipateInput!) {\n  prepareParticipate(input: $input) {\n    allow\n    disallowReason\n    signature\n    nonce\n    mintFuncInfo {\n      funcName\n      nftCoreAddress\n      verifyIDs\n      powahs\n      cap\n      __typename\n    }\n    extLinkResp {\n      success\n      data\n      error\n      __typename\n    }\n    metaTxResp {\n      metaSig2\n      autoTaskUrl\n      metaSpaceAddr\n      forwarderAddr\n      metaTxHash\n      reqQueueing\n      __typename\n    }\n    solanaTxResp {\n      mint\n      updateAuthority\n      explorerUrl\n      signedTx\n      verifyID\n      __typename\n    }\n    aptosTxResp {\n      signatureExpiredAt\n      tokenName\n      __typename\n    }\n    tokenRewardCampaignTxResp {\n      signatureExpiredAt\n      verifyID\n      __typename\n    }\n    loyaltyPointsTxResp {\n      TotalClaimedPoints\n      __typename\n    }\n    flowTxResp {\n      Name\n      Description\n      Thumbnail\n      __typename\n    }\n    __typename\n  }\n}\n"
             }
             res = await self.http.post('https://graphigo.prd.galaxy.eco/query', json=json_data)
-            if res.status_code == 200 and 'sendVerificationCode' in res.text:
+            if res.status_code == 200 and 'errors' not in res.text:
                 logger.success(f"[{self.account.address[:10]}*******] 领取【{task_name[campaignID]}】积分成功")
                 return True
             else:
